@@ -209,6 +209,62 @@ def create_window(data, n_in = 1, n_out = 1, drop_nan = False):
         agg.dropna(inplace=True)
     return agg
 
+def create_window_HS(data, n_in = 1, n_out = 1, drop_nan = False):
+    '''
+    Converts the time-series to a supervised learning problem
+    Based on: https://machinelearningmastery.com/convert-time-series-supervised-learning-problem-python/
+
+    data: Sequence of observations as a list or 2D NumPy array.
+    n_in: number of lag observations as input (X). 
+         Values may be between [1..len(data)] Optional. Defaults to 1.
+    n_out: number of observations as output (y). 
+           Values may be between [0..len(data)-1]. Optional. Defaults to 1.
+    drop_nan: boolean whether or not to drop rows with NaN values. Optional. 
+              (Defaults to False).
+    '''
+    
+    df_in = pd.DataFrame(data)
+    # Drop the last column of data as it is the Y values
+    df_in.drop(df_in.columns[len(df_in.columns)-1], axis=1, inplace=True)
+
+    n_vars_in = 1 if type(data) is list else df_in.shape[1]
+
+    df_out = pd.DataFrame(data[:,-1])
+    # retail only the Y values for this dataframe
+    #for i in range(0, len(df_out.columns)-2):
+    #    df_out.drop((0), axis=1, inplace=True)
+    n_vars_out = 1 if type(data) is list else df_out.shape[1]
+
+    cols, names = list(), list()
+
+    # input sequence (t-n_in, ... t)
+    for i in range(n_in, -1, -1):
+        cols.append(df_in.shift(i))
+        if i == 0:
+            names += [('var%d(t)' % (j+1)) for j in range(n_vars_in)]
+        else:
+            names += [('var%d(t-%d)' % (j+1, i)) for j in range(n_vars_in)]
+
+    # forecast sequence (t-n_out, ... t)
+    for i in range((n_out-1), -1, -1):
+        cols.append(df_out.shift(i))
+        if i == 0:
+            names += [('var%d(t)' % (n_vars_in+j+1)) for j in range(n_vars_out)]
+        else:
+            names += [('var%d(t-%d)' % (n_vars_in+j+1, i)) for j in range(n_vars_out)]
+
+    # put it all together
+    agg = pd.concat(cols, axis=1)
+    agg.columns = names
+
+    # drop rows with NaN values
+    if drop_nan:
+        agg.dropna(inplace=True)
+    return agg
+
+
+
+
 def plot_loss(history):
     
     history = history.history
